@@ -1,0 +1,52 @@
+services:
+  gateway:
+    build: ./services/gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - checkout
+    environment:
+      CHECKOUT_URL: "http://checkout:8003"
+      PYTHONUNBUFFERED: "1"
+
+  checkout:
+    build: ./services/checkout
+    ports:
+      - "8003:8003"
+    depends_on:
+      - pricing
+      - inventory
+      - postgres
+    environment:
+      PRICING_URL: "http://pricing:8001"
+      INVENTORY_URL: "http://inventory:8002"
+      HTTP_TIMEOUT_SECONDS: "2.0"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      POSTGRES_USER: "checkout"
+      POSTGRES_PASSWORD: "changeme"
+      POSTGRES_DB: "checkout"
+
+  pricing:
+    build: ./services/pricing
+    ports:
+      - "8001:8001"
+
+  inventory:
+    build: ./services/inventory
+    ports:
+      - "8002:8002"
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "checkout"
+      POSTGRES_PASSWORD: "changeme"
+      POSTGRES_DB: "checkout"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
