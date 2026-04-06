@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: checkout-demo
+  labels:
+    app: checkout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
+        app: checkout
+    spec:
+      containers:
+        - name: checkout
+          image: chinni-checkout:latest # replace with your pushed image name
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8003
+          env:
+            - name: PRICING_URL
+              value: "http://pricing:8001"
+            - name: INVENTORY_URL
+              value: "http://inventory:8002"
+            - name: HTTP_TIMEOUT_SECONDS
+              value: "2.0"
+            - name: DB_HOST
+              value: "postgres"
+            - name: DB_PORT
+              value: "5432"
+          envFrom:
+            - secretRef:
+                name: postgres-credentials
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout
+  namespace: checkout-demo
+  labels:
+    app: checkout
+spec:
+  selector:
+    app: checkout
+  ports:
+    - name: http
+      port: 8003
+      targetPort: 8003
+

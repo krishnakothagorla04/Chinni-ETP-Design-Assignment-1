@@ -1,0 +1,26 @@
+# KEDA HTTP add-on: gateway scale-to-zero (min 0).
+# Traffic must go through the HTTP add-on interceptor with Host header matching spec.hosts.
+# Install: helm install http-add-on kedacore/keda-add-ons-http -n keda
+# Then: kubectl apply -f k8s/keda/httpscaledobject-gateway-scale-to-zero.yaml
+#
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: gateway-http-scaler
+  namespace: checkout-demo
+spec:
+  hosts:
+    - gateway.checkout-demo.svc.cluster.local
+  scaleTargetRef:
+    name: gateway
+    kind: Deployment
+    apiVersion: apps/v1
+    service: gateway
+    port: 80
+  replicas:
+    min: 0
+    max: 5
+  scaledownPeriod: 60
+  scalingMetric:
+    concurrency:
+      targetValue: 10

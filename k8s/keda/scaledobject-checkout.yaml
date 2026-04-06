@@ -1,0 +1,19 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: checkout-scaler
+  namespace: checkout-demo
+spec:
+  scaleTargetRef:
+    name: checkout
+  # NOTE: With pure CPU/memory triggers, KEDA cannot scale from 0.
+  # This cluster's admission webhook enforces minReplicaCount >= 1.
+  # So checkout will scale between 1 and 5 replicas based on CPU.
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  cooldownPeriod: 120
+  triggers:
+    - type: cpu
+      metadata:
+        type: Utilization
+        value: "50"
