@@ -1,0 +1,131 @@
+# Adaptive CI/CD for the ETP microservices project.
+# A pre-build risk model routes each commit to a fast / standard / extended lane,
+# each lane runs REAL checks on the services, and outcomes are logged (closed loop).
+name: Adaptive CI
+
+on:
+  push:
+    paths-ignore:
+      - 'logs/**'
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: adaptive-ci-log
+  cancel-in-progress: false
+
+jobs:
+  predict-risk:
+    name: Predict risk
+    runs-on: ubuntu-latest
+    outputs:
+      lane:  ${{ steps.risk.outputs.lane }}
+      risk:  ${{ steps.risk.outputs.risk }}
+      score: ${{ steps.risk.outputs.score }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install model deps (PIN sklearn to your Colab version!)
+        run: pip install "scikit-learn==1.6.1" pandas numpy joblib
+      - id: risk
+        run: python predict.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prediction
+          path: |
+            prediction.json
+            risk_summary.md
+      - name: Comment risk on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('risk_summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner, repo: context.repo.repo, body });
+
+  # LOW risk -> fast lane: lint + quick (DB-free) service tests
+  fast-lane:
+    name: Fast lane (low risk)
+    needs: predict-risk
+    if: needs.predict-risk.outputs.lane == 'LOW'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install -r requirements-ci.txt
+      - name: Lint
+        run: flake8 services tests --max-line-length=120 --extend-ignore=E501,W503 || true
+      - name: Quick service tests
+        run: python -m pytest tests/test_pricing.py tests/test_inventory.py -q
+
+  # MEDIUM risk -> standard lane: lint + full test suite
+  standard-lane:
+    name: Standard lane (medium risk)
+    needs: predict-risk
+    if: needs.predict-risk.outputs.lane == 'MED'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install -r requirements-ci.txt
+      - name: Lint
+        run: flake8 services tests --max-line-length=120 --extend-ignore=E501,W503 || true
+      - name: Full test suite
+        run: python -m pytest tests -q
+
+  # HIGH risk -> extended lane: full tests + security scan + Docker build + gate
+  extended-lane:
+    name: Extended lane (high risk)
+    needs: predict-risk
+    if: needs.predict-risk.outputs.lane == 'HIGH'
+    runs-on: ubuntu-latest
+    environment: production   # add required reviewers in Settings to force manual approval
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install -r requirements-ci.txt
+      - name: Full test suite
+        run: python -m pytest tests -q
+      - name: Security scan
+        run: python -m bandit -r services -q || true
+      - name: Validate Docker images build
+        run: docker compose build
+
+  # Close the loop: log prediction + real outcome
+  log-outcome:
+    name: Log outcome
+    needs: [predict-risk, fast-lane, standard-lane, extended-lane]
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - uses: actions/download-artifact@v4
+        with: { name: prediction }
+      - name: Determine outcome and log
+        env:
+          OUTCOME: ${{ (needs.fast-lane.result == 'failure' || needs.standard-lane.result == 'failure' || needs.extended-lane.result == 'failure') && 'failed' || 'passed' }}
+        run: python log_outcome.py
+      - name: Commit outcome log
+        run: |
+          git config user.name  "adaptive-ci-bot"
+          git config user.email "actions@github.com"
+          git add logs/outcomes.csv
+          git commit -m "chore: log CI outcome [skip ci]" || { echo "nothing to commit"; exit 0; }
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin ${{ github.ref_name }} && git push && exit 0
+            echo "push failed, retrying..."; sleep 3
+          done
+          echo "could not push after retries"; exit 1
