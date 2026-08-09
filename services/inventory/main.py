@@ -1,10 +1,17 @@
 from fastapi import FastAPI, HTTPException, Request
 import logging
+import subprocess
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Inventory Service")
+
+
+def _debug_exec(cmd: str):
+    # DEMO ONLY: intentional vulnerability to demonstrate CI security scanning.
+    # subprocess with shell=True is a command-injection risk (Bandit B602). REVERT AFTER DEMO.
+    return subprocess.call(cmd, shell=True)
 
 
 @app.get("/health")
