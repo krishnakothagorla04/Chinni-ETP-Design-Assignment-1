@@ -98,7 +98,7 @@ jobs:
       - name: Full test suite
         run: python -m pytest tests -q
       - name: Security scan
-        run: python -m bandit -r services -q || true
+        run: python -m bandit -r services -ll
       - name: Validate Docker images build
         run: docker compose build
 
