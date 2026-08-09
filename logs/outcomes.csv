@@ -1,0 +1,2 @@
+logged_at,commit,score,predicted_lane,lane_run,explored,outcome,total_files,total_churn,src_churn,is_docs_only
+2026-08-09T13:00:03.836716,74bf16a6b102cf6a02f6af02cab420e16e403ec3,0.1355,MED,MED,0,passed,1,131,131,0
