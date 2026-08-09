@@ -1,3 +1,4 @@
 logged_at,commit,score,predicted_lane,lane_run,explored,outcome,total_files,total_churn,src_churn,is_docs_only
 2026-08-09T13:00:03.836716,74bf16a6b102cf6a02f6af02cab420e16e403ec3,0.1355,MED,MED,0,passed,1,131,131,0
 2026-08-09T13:20:08.030353,2db1e752f53af378d85b89b94cc05da4056888e3,0.1355,HIGH,HIGH,0,passed,1,2,2,0
+2026-08-09T13:24:01.224981,3e002b5ace0a2cfefd91a4894f473a34a6b9dabd,0.1355,HIGH,HIGH,0,failed,1,2,2,0
