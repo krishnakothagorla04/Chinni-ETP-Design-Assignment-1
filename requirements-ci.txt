@@ -1,0 +1,7 @@
+# Dependencies for running the adaptive CI lanes on the ETP microservices
+fastapi>=0.100.0
+httpx>=0.24.0
+psycopg2-binary>=2.9.0
+pytest
+flake8
+bandit
