@@ -20,7 +20,7 @@ import joblib
 
 # ---- policy thresholds (from the Colab Pareto analysis) ----
 LOW_MAX  = 0.10
-HIGH_MIN = 0.20
+HIGH_MIN = 0.05
 EXPLORE_RATE = 0.15   # occasionally full-run a LOW commit to recover its true label (RQ3)
 
 DOC_EXT = {".md", ".rst", ".txt", ".adoc"}
